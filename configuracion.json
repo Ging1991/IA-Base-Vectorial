@@ -1,0 +1,8 @@
+{
+	"ruta_pdf": "datos/guion.pdf",
+	"salida_documentos": "datos/documentos.json",
+	"salida_faiss": "datos/documentos.faiss",
+	"longitud": 600,
+	"solapamiento": 200,
+	"url_servidor_embeddings" : "http://127.0.0.1:8081"
+}
