@@ -1,198 +1,302 @@
-# IA-Servidor
+# Base Vectorial
 
-Servidor local para modelos de lenguaje y modelos de embeddings utilizando `llama.cpp`.
+Aplicación en Python para crear una base vectorial a partir del contenido de un archivo PDF.
 
-El proyecto permite levantar dos servidores independientes:
+El programa:
 
-* **Servidor de lenguaje:** proporciona una API compatible con OpenAI para generación de texto.
-* **Servidor de embeddings:** proporciona una API para generar vectores de embeddings.
+1. Extrae el texto del PDF.
+2. Limpia el texto.
+3. Lo divide en fragmentos.
+4. Genera un embedding para cada fragmento mediante un servidor local.
+5. Crea un índice vectorial utilizando FAISS.
+6. Guarda los fragmentos y el índice vectorial en disco.
 
-La configuración de los modelos, ejecutable, puertos y parámetros se realiza mediante `configuracion.json`.
+La aplicación está diseñada como un componente de una arquitectura RAG. **No realiza búsquedas RAG ni consultas al modelo de lenguaje**; su función principal es construir la base vectorial.
+
+## Arquitectura
+
+```text
+PDF
+ │
+ ▼
+LectorPDF
+ │
+ ▼
+Estrategia
+ │
+ ▼
+Servidor de embeddings
+ │
+ ▼
+Embeddings
+ │
+ ▼
+BaseVectorial (FAISS)
+ │
+ ├──────────────┐
+ ▼              ▼
+JSON           FAISS
+```
+
+El servidor de embeddings se ejecuta como un componente independiente.
 
 ## Requisitos
 
-* Python 3
-* Git
-* `llama-server` de `llama.cpp`
-* Un modelo compatible con `llama.cpp` en formato GGUF
-* Un modelo de embeddings compatible con `llama.cpp` en formato GGUF
+* Python 3.10 o superior.
+* Un servidor compatible con el endpoint:
 
-Los modelos GGUF pueden obtenerse desde [Hugging Face](https://huggingface.co/models?library=gguf).
-
-## 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/Ging1991/IA-Servidor.git
-cd IA-Servidor
+```text
+/v1/embeddings
 ```
 
-## 2. Crear el entorno virtual
+* Un modelo de embeddings cargado en dicho servidor.
+* Las dependencias Python indicadas en `requirements.txt`.
 
-Desde la carpeta raíz del proyecto:
+### Servidor de embeddings
 
-### Windows
+Este proyecto necesita que el servidor de embeddings esté ejecutándose antes de crear la base vectorial.
+
+Se puede utilizar el proyecto:
+
+[IA-Servidor](https://github.com/Ging1991/IA-Servidor?utm_source=chatgpt.com)
+
+Ese proyecto permite levantar un servidor local de embeddings utilizando `llama.cpp`.
+
+El servidor debe estar disponible en la dirección configurada en `configuracion.json`. Por ejemplo:
+
+```text
+http://127.0.0.1:8081
+```
+
+El endpoint utilizado por esta aplicación es:
+
+```text
+http://127.0.0.1:8081/v1/embeddings
+```
+
+## Instalación
+
+Clonar el repositorio:
+
+```bash
+git clone <URL_DEL_REPOSITORIO>
+cd BASE_VECTORIAL
+```
+
+Se recomienda crear un entorno virtual:
 
 ```bash
 python -m venv venv
 ```
 
-Activar el entorno virtual:
+Activar el entorno virtual en Windows:
 
 ```bash
 venv\Scripts\activate
 ```
 
-Si la activación fue correcta, la terminal mostrará `(venv)` al comienzo de la línea.
-
-## 3. Instalar las dependencias
-
-Con el entorno virtual activado:
+Instalar las dependencias:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Las dependencias utilizadas actualmente por el proyecto son principalmente las necesarias para realizar las solicitudes HTTP a los servidores.
-
-## 4. Obtener `llama-server`
-
-El proyecto utiliza el ejecutable `llama-server` de `llama.cpp`.
-
-Se puede obtener una versión precompilada desde las releases oficiales de `llama.cpp`:
-
-[Releases de llama.cpp](https://github.com/ggml-org/llama.cpp/releases)
-
-Descargar una versión compatible con el sistema operativo y el hardware utilizado.
-
-El archivo necesario es:
+## Estructura del proyecto
 
 ```text
-llama-server.exe
+BASE_VECTORIAL/
+│
+├── app/
+│   ├── almacenamiento.py
+│   ├── base_vectorial.py
+│   ├── estrategia.py
+│   ├── lector_pdf.py
+│   ├── servidor_embeddings.py
+│   ├── vectorizador.py
+│   └── verificador.py
+│
+├── datos/
+│   └── guion.pdf
+│
+├── configuracion.json
+├── main.py
+└── requirements.txt
 ```
 
-En Windows, por ejemplo:
+## Configuración
 
-```text
-C:\llama.cpp\llama-server.exe
-```
-
-## 5. Descargar los modelos
-
-Los modelos deben estar disponibles en formato GGUF.
-
-### Modelo de lenguaje
-
-Como modelo de referencia se puede utilizar:
-
-**Dolphin 2.9.4 Llama 3.1 8B Q4_K_M**
-
-Disponible en Hugging Face:
-
-https://huggingface.co/dphn/dolphin-2.9.4-llama3.1-8b-gguf
-
-El archivo utilizado es:
-
-```text
-dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf
-```
-
-El modelo ocupa aproximadamente 4.92 GB.
-
-### Modelo de embeddings
-
-Como modelo de referencia se puede utilizar:
-
-**Nomic Embed Text v1.5 Q4_K_M**
-
-Disponible en Hugging Face:
-
-https://huggingface.co/RinaChen/nomic-embed-text-v1.5-Q4_K_M-GGUF
-
-El archivo utilizado es:
-
-```text
-nomic-embed-text-v1.5-q4_k_m.gguf
-```
-
-## 6. Configurar el proyecto
-
-Antes de ejecutar el programa, modificar `configuracion.json`.
+La aplicación utiliza `configuracion.json` para definir sus parámetros.
 
 Ejemplo:
 
 ```json
 {
-    "ejecutable": "C://llama.cpp//llama-server.exe",
-    "host": "127.0.0.1",
-    "contexto": 2048,
-    "capas": 999,
-    "modelo_lenguaje": "C://Modelos//dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf",
-    "modelo_embeddings": "C://Modelos//nomic-embed-text-v1.5-q4_k_m.gguf",
-    "puerto_lenguaje": 8080,
-    "puerto_embeddings": 8081
+	"ruta_pdf": "datos/guion.pdf",
+	"salida_documentos": "datos/documentos.json",
+	"salida_faiss": "datos/documentos.faiss",
+	"longitud": 600,
+	"solapamiento": 200,
+	"url_servidor_embeddings": "http://127.0.0.1:8081"
 }
 ```
 
 ### Parámetros
 
-| Parámetro           | Descripción                                          |
-| ------------------- | ---------------------------------------------------- |
-| `ejecutable`        | Ruta al archivo `llama-server.exe`.                  |
-| `host`              | Dirección donde se ejecutarán los servidores.        |
-| `contexto`          | Tamaño del contexto utilizado por el modelo.         |
-| `capas`             | Cantidad de capas que se intentarán ejecutar en GPU. |
-| `modelo_lenguaje`   | Ruta al modelo GGUF de lenguaje.                     |
-| `modelo_embeddings` | Ruta al modelo GGUF de embeddings.                   |
-| `puerto_lenguaje`   | Puerto utilizado por el servidor de lenguaje.        |
-| `puerto_embeddings` | Puerto utilizado por el servidor de embeddings.      |
+| Parámetro                 | Descripción                                                       |
+| ------------------------- | ----------------------------------------------------------------- |
+| `ruta_pdf`                | Ruta del PDF que se utilizará como fuente.                        |
+| `salida_documentos`       | Archivo JSON donde se almacenarán los fragmentos.                 |
+| `salida_faiss`            | Archivo donde se almacenará el índice FAISS.                      |
+| `longitud`                | Cantidad de caracteres de cada fragmento.                         |
+| `solapamiento`            | Cantidad de caracteres compartidos entre fragmentos consecutivos. |
+| `url_servidor_embeddings` | Dirección del servidor local de embeddings.                       |
 
-Las URLs de los servicios se generan automáticamente utilizando `host` y el puerto correspondiente.
+Por ejemplo, con:
 
-Por ejemplo:
-
-```text
-Servidor de lenguaje:
-http://127.0.0.1:8080
-
-Servidor de embeddings:
-http://127.0.0.1:8081
+```json
+"longitud": 600,
+"solapamiento": 200
 ```
 
-## 7. Ejecutar
+cada fragmento tendrá hasta 600 caracteres y compartirá 200 caracteres con el fragmento siguiente.
 
-Con el entorno virtual activado:
+## Ejecución
+
+Antes de ejecutar la aplicación, asegurarse de que el servidor de embeddings esté levantado.
+
+Luego ejecutar:
 
 ```bash
 python main.py
 ```
 
-El programa mostrará un menú:
+Se mostrará un menú:
 
 ```text
-1 - Levantar servidor de embeddings.
-2 - Levantar servidor de lenguaje.
-3 - Realizar la prueba de verificación para el servidor de embeddings.
-4 - Realizar la prueba de verificación para el servidor de lenguaje.
+1 - Revisar configuración
+2 - Crear base vectorial
 ```
 
-### Opciones 1 y 2
+### 1. Revisar configuración
 
-Inician el servidor correspondiente utilizando los parámetros definidos en `configuracion.json`.
+Muestra los valores cargados desde `configuracion.json`.
 
-La ventana de la consola debe permanecer abierta mientras el servidor esté siendo utilizado.
+Ejemplo:
 
-### Opciones 3 y 4
+```text
+Configuración cargada:
+ruta_pdf: datos/guion.pdf
+salida_documentos: datos/documentos.json
+salida_faiss: datos/documentos.faiss
+longitud: 600
+solapamiento: 200
+url_servidor_embeddings: http://127.0.0.1:8081
+```
 
-Realizan una prueba de funcionamiento contra un servidor que ya se encuentre iniciado.
+### 2. Crear base vectorial
 
-La prueba de embeddings genera un vector y comprueba que la respuesta tenga el formato esperado.
+Ejecuta todo el proceso:
 
-La prueba de lenguaje realiza una solicitud al endpoint de generación de texto.
+```text
+PDF
+ ↓
+Extracción y limpieza
+ ↓
+División en fragmentos
+ ↓
+Generación de embeddings
+ ↓
+Creación del índice FAISS
+ ↓
+Guardado de archivos
+```
 
-## Notas
+Durante la generación de embeddings se muestra el progreso cada 10 fragmentos para indicar que el proceso continúa ejecutándose.
 
-Los modelos y el ejecutable `llama-server` **no forman parte del repositorio** debido a su tamaño.
+Al finalizar se informa la cantidad de vectores almacenados.
 
-Cada usuario debe descargar los modelos y configurar sus propias rutas en `configuracion.json`.
+## Archivos generados
 
-El proyecto utiliza `llama.cpp` como motor de inferencia y las interfaces HTTP proporcionadas por `llama-server`.
+Al crear la base vectorial se generan dos archivos.
+
+### `documentos.json`
+
+Contiene los fragmentos de texto utilizados para generar los embeddings.
+
+La posición de cada fragmento corresponde con la posición de su vector en FAISS:
+
+```text
+documentos.json       documentos.faiss
+     [0]       ↔            [0]
+     [1]       ↔            [1]
+     [2]       ↔            [2]
+     ...
+```
+
+### `documentos.faiss`
+
+Contiene el índice vectorial generado mediante FAISS.
+
+La aplicación utiliza `IndexFlatL2` para almacenar los vectores.
+
+## Verificación de la base
+
+La clase `Verificador` también permite inspeccionar una base vectorial existente.
+
+La información disponible actualmente incluye:
+
+* Cantidad de vectores.
+* Dimensión de los vectores.
+* Cantidad de fragmentos almacenados.
+
+Por ejemplo:
+
+```text
+Base vectorial:
+Vectores: 242
+Dimensión: 768
+Fragmentos: 242
+```
+
+La cantidad de vectores y fragmentos debería coincidir, ya que cada fragmento tiene asociado un único embedding.
+
+## Flujo de trabajo completo
+
+```text
+1. Clonar el proyecto
+        ↓
+2. Crear entorno virtual
+        ↓
+3. Instalar requirements.txt
+        ↓
+4. Preparar el PDF
+        ↓
+5. Configurar configuracion.json
+        ↓
+6. Levantar el servidor de embeddings
+        ↓
+7. Ejecutar main.py
+        ↓
+8. Seleccionar "Crear base vectorial"
+        ↓
+9. Se generan:
+       ├── documentos.json
+       └── documentos.faiss
+```
+
+## Dependencia con IA-Servidor
+
+Este proyecto y `IA-Servidor` tienen responsabilidades separadas:
+
+```text
+IA-Servidor
+    │
+    └── Ejecuta y expone el modelo de embeddings
+                  │
+                  ▼
+            BASE_VECTORIAL
+                  │
+                  └── Construye y almacena la base vectorial
+```
+
+Por lo tanto, **IA-Servidor debe estar funcionando antes de ejecutar la opción "Crear base vectorial"**.
